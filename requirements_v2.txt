@@ -1,0 +1,7 @@
+﻿typer
+httpx
+selectolax
+pandas
+jinja2
+plotly
+sqlite-utils
