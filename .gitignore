@@ -1,0 +1,20 @@
+﻿# Python
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Virtual env
+.venv/
+env/
+venv/
+
+# IDE/OS
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Outputs (keep dirs via .gitkeep)
+data/*
+!data/.gitkeep
+reports/*
+!reports/.gitkeep

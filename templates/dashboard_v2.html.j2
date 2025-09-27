@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="mk">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Real Estate Dashboard v2 — Скопје (магацини/плацови)</title>
+
+  <!-- Лесен, читлив стил (можеш да го смениш по желба) -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/simpledotcss/simple.min.css">
+
+  <!-- DataTables v2 (без jQuery зависност) -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/datatables.net-dt@2.1.8/css/dataTables.dataTables.min.css">
+  <style>
+    :root { --card-bg: #fff; --card-br: 12px; --card-shadow: 0 1px 6px rgba(0,0,0,.07); }
+    .grid { display: grid; gap: 1.2rem; }
+    .grid-2 { grid-template-columns: 1fr 1fr; }
+    @media (max-width: 920px) { .grid-2 { grid-template-columns: 1fr; } }
+    .card { background: var(--card-bg); border-radius: var(--card-br); padding: 1rem; box-shadow: var(--card-shadow); }
+    .nowrap { white-space: nowrap; }
+    table.dataTable tbody tr:hover { background: #f7f7ff; }
+    header h1 { margin-bottom: .25rem; }
+    header p { margin-top: .25rem; color: #555; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Скопје — Магацини &amp; Плацови (HTML Dashboard v2)</h1>
+    <p>Генерирано: {{ generated_at }}</p>
+  </header>
+
+  <section class="grid grid-2">
+    <div class="card" id="chart_dist">
+      {{ plot_dist|safe }}
+    </div>
+    <div class="card" id="chart_scatter">
+      {{ plot_scatter|safe }}
+    </div>
+    <div class="card" id="chart_top_munis">
+      {{ plot_top_munis|safe }}
+    </div>
+    <div class="card" id="chart_volume">
+      {{ plot_volume|safe }}
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>Top понуди (првите 100 по скор/свежина)</h2>
+    {% if rows|length == 0 %}
+      <p><em>Нема податоци за табела. Пушти crawl, па report.</em></p>
+    {% else %}
+      <p>Совет: клик на заглавие сортира; „Пребарај“ филтрира; табелата е responsive.</p>
+      <table id="tbl" class="display nowrap" style="width:100%">
+        <thead>
+          <tr>
+            {% for c in columns %}
+              <th>{{ c }}</th>
+            {% endfor %}
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in rows %}
+            <tr>
+            {% for c in columns %}
+              {% if c == "url" %}
+                <td><a href="{{ r[c] }}" target="_blank" rel="noopener">линк</a></td>
+              {% else %}
+                <td>{{ r[c] }}</td>
+              {% endif %}
+            {% endfor %}
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% endif %}
+  </section>
+
+  <!-- DataTables 2 (vanilla) -->
+  <script src="https://cdn.jsdelivr.net/npm/datatables.net@2.1.8/js/dataTables.min.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', function () {
+      const tbl = document.getElementById('tbl');
+      if (tbl) {
+        new DataTable(tbl, {
+          paging: true,
+          pageLength: 25,
+          fixedHeader: true,
+          responsive: true
+        });
+      }
+    });
+  </script>
+</body>
+</html>
