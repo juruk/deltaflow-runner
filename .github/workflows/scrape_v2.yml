@@ -32,6 +32,7 @@ jobs:
       - name: Sanity check
         run: |
           test -f reports/dashboard_v2.html
+          # Не уривај CI ако нема графици (празни податоци) → дозволено е
           grep -q "chart_" reports/dashboard_v2.html || true
 
       - name: Upload artifacts
