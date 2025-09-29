@@ -1,6 +1,6 @@
-# main_v2.py  (v2.2)
-# CLI за кролер + HTML извештај за магацини/плацови во Скопје.
-# Команди:
+﻿# main_v2.py  (v2.2)
+# CLI Ð·Ð° ÐºÑ€Ð¾Ð»ÐµÑ€ + HTML Ð¸Ð·Ð²ÐµÑˆÑ‚Ð°Ñ˜ Ð·Ð° Ð¼Ð°Ð³Ð°Ñ†Ð¸Ð½Ð¸/Ð¿Ð»Ð°Ñ†Ð¾Ð²Ð¸ Ð²Ð¾ Ð¡ÐºÐ¾Ð¿Ñ˜Ðµ.
+# ÐšÐ¾Ð¼Ð°Ð½Ð´Ð¸:
 #   python main_v2.py crawl --since 30d --max-items 200
 #   python main_v2.py report --since 30d --out reports/dashboard_v2.html
 #   python main_v2.py serve-report
@@ -14,11 +14,11 @@ from datetime import datetime, timedelta
 import pandas as pd
 import typer
 
-# Адаптери по извор (минимални)
+# ÐÐ´Ð°Ð¿Ñ‚ÐµÑ€Ð¸ Ð¿Ð¾ Ð¸Ð·Ð²Ð¾Ñ€ (Ð¼Ð¸Ð½Ð¸Ð¼Ð°Ð»Ð½Ð¸)
 from sources.pazar3_v2 import crawl_pazar3
 from sources.reklama5_v2 import crawl_reklama5
 
-app = typer.Typer(help="Crawler + Reports (Скопје: магацини и плацови)")
+app = typer.Typer(help="Crawler + Reports (Ð¡ÐºÐ¾Ð¿Ñ˜Ðµ: Ð¼Ð°Ð³Ð°Ñ†Ð¸Ð½Ð¸ Ð¸ Ð¿Ð»Ð°Ñ†Ð¾Ð²Ð¸)")
 
 DATA_DIR = Path("data")
 CSV_PATH = DATA_DIR / "listings.csv"
@@ -30,12 +30,12 @@ def _ensure_data_dir() -> None:
 
 def _parse_since(since: str) -> int:
     """
-    Прифатени формати: '7d' (денови), '4w' (недели).
-    Враќа број на денови.
+    ÐŸÑ€Ð¸Ñ„Ð°Ñ‚ÐµÐ½Ð¸ Ñ„Ð¾Ñ€Ð¼Ð°Ñ‚Ð¸: '7d' (Ð´ÐµÐ½Ð¾Ð²Ð¸), '4w' (Ð½ÐµÐ´ÐµÐ»Ð¸).
+    Ð’Ñ€Ð°ÑœÐ° Ð±Ñ€Ð¾Ñ˜ Ð½Ð° Ð´ÐµÐ½Ð¾Ð²Ð¸.
     """
     m = re.match(r"^(\d+)([dw])$", since.strip(), flags=re.IGNORECASE)
     if not m:
-        # дефолт 30 дена ако форматот е невалиден
+        # Ð´ÐµÑ„Ð¾Ð»Ñ‚ 30 Ð´ÐµÐ½Ð° Ð°ÐºÐ¾ Ñ„Ð¾Ñ€Ð¼Ð°Ñ‚Ð¾Ñ‚ Ðµ Ð½ÐµÐ²Ð°Ð»Ð¸Ð´ÐµÐ½
         return 30
     val = int(m.group(1))
     unit = m.group(2).lower()
@@ -48,11 +48,11 @@ def _parse_since(since: str) -> int:
 
 @app.command()
 def crawl(
-    since: str = typer.Option("30d", help="Период за собирање, пр. 7d или 4w"),
-    max_items: int = typer.Option(200, help="Максимум записи по извор"),
+    since: str = typer.Option("30d", help="ÐŸÐµÑ€Ð¸Ð¾Ð´ Ð·Ð° ÑÐ¾Ð±Ð¸Ñ€Ð°ÑšÐµ, Ð¿Ñ€. 7d Ð¸Ð»Ð¸ 4w"),
+    max_items: int = typer.Option(200, help="ÐœÐ°ÐºÑÐ¸Ð¼ÑƒÐ¼ Ð·Ð°Ð¿Ð¸ÑÐ¸ Ð¿Ð¾ Ð¸Ð·Ð²Ð¾Ñ€"),
 ):
     """
-    Собира огласи од поддржаните извори и ги снима во data/listings.csv.
+    Ð¡Ð¾Ð±Ð¸Ñ€Ð° Ð¾Ð³Ð»Ð°ÑÐ¸ Ð¾Ð´ Ð¿Ð¾Ð´Ð´Ñ€Ð¶Ð°Ð½Ð¸Ñ‚Ðµ Ð¸Ð·Ð²Ð¾Ñ€Ð¸ Ð¸ Ð³Ð¸ ÑÐ½Ð¸Ð¼Ð° Ð²Ð¾ data/listings.csv.
     """
     _ensure_data_dir()
     days = _parse_since(since)
@@ -62,7 +62,7 @@ def crawl(
     for src_fn in [crawl_pazar3, crawl_reklama5]:
         try:
             got = src_fn(start_date=start_date, limit=max_items)
-            typer.echo(f"[INFO] {src_fn.__name__}: +{len(got)} записи")
+            typer.echo(f"[INFO] {src_fn.__name__}: +{len(got)} Ð·Ð°Ð¿Ð¸ÑÐ¸")
             rows += got
         except Exception as e:
             typer.echo(f"[WARN] {src_fn.__name__} failed: {e}")
@@ -70,12 +70,12 @@ def crawl(
     df = pd.DataFrame(rows)
 
     if not df.empty:
-        # Дедуп по source+url ако колоните постојат
+        # Ð”ÐµÐ´ÑƒÐ¿ Ð¿Ð¾ source+url Ð°ÐºÐ¾ ÐºÐ¾Ð»Ð¾Ð½Ð¸Ñ‚Ðµ Ð¿Ð¾ÑÑ‚Ð¾Ñ˜Ð°Ñ‚
         keep_cols = df.columns.tolist()
         if "source" in keep_cols and "url" in keep_cols:
             df = df.drop_duplicates(subset=["source", "url"])
 
-        # Нормализации
+        # ÐÐ¾Ñ€Ð¼Ð°Ð»Ð¸Ð·Ð°Ñ†Ð¸Ð¸
         if "price_eur" in df.columns:
             df["price_eur"] = pd.to_numeric(df["price_eur"], errors="coerce")
         if "area_m2" in df.columns:
@@ -95,18 +95,18 @@ def crawl(
         df["scraped_at"] = datetime.utcnow().isoformat()
 
     df.to_csv(CSV_PATH, index=False, encoding="utf-8")
-    typer.echo(f"[OK] Запишани {len(df)} записи → {CSV_PATH}")
+    typer.echo(f"[OK] Ð—Ð°Ð¿Ð¸ÑˆÐ°Ð½Ð¸ {len(df)} Ð·Ð°Ð¿Ð¸ÑÐ¸ â†’ {CSV_PATH}")
 
 
 @app.command()
 def report(
-    since: str = typer.Option("30d", help="Период за извештај, пр. 30d, 8w"),
-    out: Path = typer.Option(Path("reports/dashboard_v2.html"), help="Патека до HTML"),
+    since: str = typer.Option("30d", help="ÐŸÐµÑ€Ð¸Ð¾Ð´ Ð·Ð° Ð¸Ð·Ð²ÐµÑˆÑ‚Ð°Ñ˜, Ð¿Ñ€. 30d, 8w"),
+    out: Path = typer.Option(Path("reports/dashboard_v2.html"), help="ÐŸÐ°Ñ‚ÐµÐºÐ° Ð´Ð¾ HTML"),
 ):
     """
-    Генерира интерактивен HTML извештај од CSV/SQLite.
+    Ð“ÐµÐ½ÐµÑ€Ð¸Ñ€Ð° Ð¸Ð½Ñ‚ÐµÑ€Ð°ÐºÑ‚Ð¸Ð²ÐµÐ½ HTML Ð¸Ð·Ð²ÐµÑˆÑ‚Ð°Ñ˜ Ð¾Ð´ CSV/SQLite.
     """
-    # Lazy import за да не го блокира crawl ако има синтаксичка грешка во report-модулот
+    # Lazy import Ð·Ð° Ð´Ð° Ð½Ðµ Ð³Ð¾ Ð±Ð»Ð¾ÐºÐ¸Ñ€Ð° crawl Ð°ÐºÐ¾ Ð¸Ð¼Ð° ÑÐ¸Ð½Ñ‚Ð°ÐºÑÐ¸Ñ‡ÐºÐ° Ð³Ñ€ÐµÑˆÐºÐ° Ð²Ð¾ report-Ð¼Ð¾Ð´ÑƒÐ»Ð¾Ñ‚
     from report_builder_v2 import build_report  # type: ignore
 
     days = _parse_since(since)
@@ -114,18 +114,18 @@ def report(
     out.parent.mkdir(parents=True, exist_ok=True)
 
     build_report(
-        db_path=Path("data/realestate.db"),
+        db_path=Path("data/data aggregation.db"),
         csv_path=CSV_PATH,
         out_html=out,
         start_date=start_date,
     )
-    typer.echo(f"[OK] HTML извештај: {out}")
+    typer.echo(f"[OK] HTML Ð¸Ð·Ð²ÐµÑˆÑ‚Ð°Ñ˜: {out}")
 
 
 @app.command(name="serve-report")
-def serve_report(port: int = typer.Option(8000, help="Локален порт (default 8000)")):
+def serve_report(port: int = typer.Option(8000, help="Ð›Ð¾ÐºÐ°Ð»ÐµÐ½ Ð¿Ð¾Ñ€Ñ‚ (default 8000)")):
     """
-    Сервира /reports локално на http://localhost:<port>
+    Ð¡ÐµÑ€Ð²Ð¸Ñ€Ð° /reports Ð»Ð¾ÐºÐ°Ð»Ð½Ð¾ Ð½Ð° http://localhost:<port>
     """
     from report_builder_v2 import serve_reports  # type: ignore
 
@@ -134,3 +134,4 @@ def serve_report(port: int = typer.Option(8000, help="Локален порт (d
 
 if __name__ == "__main__":
     app()
+

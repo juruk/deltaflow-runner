@@ -1,4 +1,4 @@
-{
+﻿{
   "name": "jupyterlab-plotly",
   "main": "lib/mimeExtension.js",
   "version": "6.0.1",
@@ -37,3 +37,4 @@
     }
   }
 }
+
