@@ -1,11 +1,11 @@
-# sources/pazar3_v2.py
+﻿# sources/pazar3_v2.py
 from __future__ import annotations
 from datetime import datetime
 import httpx
 from selectolax.parser import HTMLParser
 
-WAREHOUSES_URL = "https://www.pazar3.mk/oglasi/rabota-biznis/deloven-prostor/magacin/skopje"
-LAND_URL       = "https://www.pazar3.mk/oglasi/zivealista/placovi-nivi-farmi/skopje"
+WAREHOUSES_URL = "https://www.pazar3.mk/oglasi/rabota-biznis/deloven-prostor/magacin/Region A"
+LAND_URL       = "https://www.pazar3.mk/oglasi/zivealista/placovi-nivi-farmi/Region A"
 
 def _parse_listing(card) -> dict:
     title_el = card.css_first("a.title, a.title-link, a[href*='/oglas/']")
@@ -13,29 +13,29 @@ def _parse_listing(card) -> dict:
     url = "https://www.pazar3.mk" + title_el.attributes.get("href","")
     title = title_el.text(strip=True)
 
-    # цена (евентуално "Договор")
+    # Ñ†ÐµÐ½Ð° (ÐµÐ²ÐµÐ½Ñ‚ÑƒÐ°Ð»Ð½Ð¾ "Ð”Ð¾Ð³Ð¾Ð²Ð¾Ñ€")
     price_text = (card.css_first(".price") or card.css_first(".ad-price") or card.css_first(".price-tag"))
     price_eur = None
     if price_text:
         t = price_text.text(strip=True)
-        # едноставни извлекувања; по потреба прошири regex
+        # ÐµÐ´Ð½Ð¾ÑÑ‚Ð°Ð²Ð½Ð¸ Ð¸Ð·Ð²Ð»ÐµÐºÑƒÐ²Ð°ÑšÐ°; Ð¿Ð¾ Ð¿Ð¾Ñ‚Ñ€ÐµÐ±Ð° Ð¿Ñ€Ð¾ÑˆÐ¸Ñ€Ð¸ regex
         t = t.replace(".", "").replace(" ", "")
-        if "€" in t:
-            try: price_eur = float(t.replace("€",""))
+        if "â‚¬" in t:
+            try: price_eur = float(t.replace("â‚¬",""))
             except: pass
-        elif "ден" in t.lower():
-            # груба конверзија со фикс 61.5
-            try: price_eur = float(t.lower().replace("ден","")) / 61.5
+        elif "Ð´ÐµÐ½" in t.lower():
+            # Ð³Ñ€ÑƒÐ±Ð° ÐºÐ¾Ð½Ð²ÐµÑ€Ð·Ð¸Ñ˜Ð° ÑÐ¾ Ñ„Ð¸ÐºÑ 61.5
+            try: price_eur = float(t.lower().replace("Ð´ÐµÐ½","")) / 61.5
             except: pass
 
-    # површина (ако е наведена во наслов/опис)
+    # Ð¿Ð¾Ð²Ñ€ÑˆÐ¸Ð½Ð° (Ð°ÐºÐ¾ Ðµ Ð½Ð°Ð²ÐµÐ´ÐµÐ½Ð° Ð²Ð¾ Ð½Ð°ÑÐ»Ð¾Ð²/Ð¾Ð¿Ð¸Ñ)
     area_m2 = None
     subtitle = card.css_first(".subtitle, .ad-subtitle, .desc")
     if subtitle:
         st = subtitle.text(strip=True)
-        # најпросто барање на "m2", "m²"
+        # Ð½Ð°Ñ˜Ð¿Ñ€Ð¾ÑÑ‚Ð¾ Ð±Ð°Ñ€Ð°ÑšÐµ Ð½Ð° "m2", "mÂ²"
         import re
-        m = re.search(r"(\d{2,6})\s*(m2|m²|кв|квадрат)", st, flags=re.I)
+        m = re.search(r"(\d{2,6})\s*(m2|mÂ²|ÐºÐ²|ÐºÐ²Ð°Ð´Ñ€Ð°Ñ‚)", st, flags=re.I)
         if m: area_m2 = float(m.group(1))
 
     return {
@@ -44,7 +44,7 @@ def _parse_listing(card) -> dict:
         "title": title,
         "category": "warehouse" if "magacin" in url else "land",
         "transaction": None,
-        "municipality": "Скопје",
+        "municipality": "Ð¡ÐºÐ¾Ð¿Ñ˜Ðµ",
         "area_m2": area_m2,
         "price_eur": price_eur,
         "scraped_at": datetime.utcnow().isoformat()
@@ -67,3 +67,4 @@ def crawl_pazar3(start_date, limit=200):
     rows += _scrape(WAREHOUSES_URL, limit=limit//2)
     rows += _scrape(LAND_URL,       limit=limit//2)
     return rows
+

@@ -1,5 +1,7 @@
 ﻿blank_issues_enabled: false
 contact_links:
   - name: Questions / Usage
-    url: https://github.com/<user>/skopje_realestate_crawler_v2/discussions
+    url: https://github.com/<user>/deltaflow-runner/discussions
     about: Постави прашање или предлог во Discussions.
+
+

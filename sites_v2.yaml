@@ -1,6 +1,7 @@
-pazar3:
-  warehouses_url: "https://www.pazar3.mk/oglasi/rabota-biznis/deloven-prostor/magacin/skopje"
-  lands_url: "https://www.pazar3.mk/oglasi/zivealista/placovi-nivi-farmi/skopje"
+﻿pazar3:
+  warehouses_url: "https://www.pazar3.mk/oglasi/rabota-biznis/deloven-prostor/magacin/Region A"
+  lands_url: "https://www.pazar3.mk/oglasi/zivealista/placovi-nivi-farmi/Region A"
 reklama5:
   warehouses_url: "https://www.reklama5.mk/Search/Index?cat=159&city=1"
   lands_url: ""
+

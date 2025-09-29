@@ -18,3 +18,4 @@ assignees: []
 - [ ] `area_m2` ако е наведено во оглас
 - [ ] `category` е `warehouse|land` каде е применливо
 - [ ] CI зелен
+

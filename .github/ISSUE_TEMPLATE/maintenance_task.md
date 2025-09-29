@@ -12,3 +12,4 @@ assignees: []
 ## Acceptance
 - [ ] Локален `report` работи
 - [ ] CI зелен
+

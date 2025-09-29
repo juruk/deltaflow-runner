@@ -1,14 +1,14 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="mk">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Real Estate Dashboard v2 — Скопје (магацини/плацови)</title>
+  <title>data aggregation Dashboard v2 â€” Ð¡ÐºÐ¾Ð¿Ñ˜Ðµ (Ð¼Ð°Ð³Ð°Ñ†Ð¸Ð½Ð¸/Ð¿Ð»Ð°Ñ†Ð¾Ð²Ð¸)</title>
 
-  <!-- Лесен, читлив стил (можеш да го смениш по желба) -->
+  <!-- Ð›ÐµÑÐµÐ½, Ñ‡Ð¸Ñ‚Ð»Ð¸Ð² ÑÑ‚Ð¸Ð» (Ð¼Ð¾Ð¶ÐµÑˆ Ð´Ð° Ð³Ð¾ ÑÐ¼ÐµÐ½Ð¸Ñˆ Ð¿Ð¾ Ð¶ÐµÐ»Ð±Ð°) -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/simpledotcss/simple.min.css">
 
-  <!-- DataTables v2 (без jQuery зависност) -->
+  <!-- DataTables v2 (Ð±ÐµÐ· jQuery Ð·Ð°Ð²Ð¸ÑÐ½Ð¾ÑÑ‚) -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/datatables.net-dt@2.1.8/css/dataTables.dataTables.min.css">
   <style>
     :root { --card-bg: #fff; --card-br: 12px; --card-shadow: 0 1px 6px rgba(0,0,0,.07); }
@@ -24,8 +24,8 @@
 </head>
 <body>
   <header>
-    <h1>Скопје — Магацини &amp; Плацови (HTML Dashboard v2)</h1>
-    <p>Генерирано: {{ generated_at }}</p>
+    <h1>Ð¡ÐºÐ¾Ð¿Ñ˜Ðµ â€” ÐœÐ°Ð³Ð°Ñ†Ð¸Ð½Ð¸ &amp; ÐŸÐ»Ð°Ñ†Ð¾Ð²Ð¸ (HTML Dashboard v2)</h1>
+    <p>Ð“ÐµÐ½ÐµÑ€Ð¸Ñ€Ð°Ð½Ð¾: {{ generated_at }}</p>
   </header>
 
   <section class="grid grid-2">
@@ -44,11 +44,11 @@
   </section>
 
   <section class="card">
-    <h2>Top понуди (првите 100 по скор/свежина)</h2>
+    <h2>Top Ð¿Ð¾Ð½ÑƒÐ´Ð¸ (Ð¿Ñ€Ð²Ð¸Ñ‚Ðµ 100 Ð¿Ð¾ ÑÐºÐ¾Ñ€/ÑÐ²ÐµÐ¶Ð¸Ð½Ð°)</h2>
     {% if rows|length == 0 %}
-      <p><em>Нема податоци за табела. Пушти crawl, па report.</em></p>
+      <p><em>ÐÐµÐ¼Ð° Ð¿Ð¾Ð´Ð°Ñ‚Ð¾Ñ†Ð¸ Ð·Ð° Ñ‚Ð°Ð±ÐµÐ»Ð°. ÐŸÑƒÑˆÑ‚Ð¸ crawl, Ð¿Ð° report.</em></p>
     {% else %}
-      <p>Совет: клик на заглавие сортира; „Пребарај“ филтрира; табелата е responsive.</p>
+      <p>Ð¡Ð¾Ð²ÐµÑ‚: ÐºÐ»Ð¸Ðº Ð½Ð° Ð·Ð°Ð³Ð»Ð°Ð²Ð¸Ðµ ÑÐ¾Ñ€Ñ‚Ð¸Ñ€Ð°; â€žÐŸÑ€ÐµÐ±Ð°Ñ€Ð°Ñ˜â€œ Ñ„Ð¸Ð»Ñ‚Ñ€Ð¸Ñ€Ð°; Ñ‚Ð°Ð±ÐµÐ»Ð°Ñ‚Ð° Ðµ responsive.</p>
       <table id="tbl" class="display nowrap" style="width:100%">
         <thead>
           <tr>
@@ -62,7 +62,7 @@
             <tr>
             {% for c in columns %}
               {% if c == "url" %}
-                <td><a href="{{ r[c] }}" target="_blank" rel="noopener">линк</a></td>
+                <td><a href="{{ r[c] }}" target="_blank" rel="noopener">Ð»Ð¸Ð½Ðº</a></td>
               {% else %}
                 <td>{{ r[c] }}</td>
               {% endif %}
@@ -91,3 +91,6 @@
   </script>
 </body>
 </html>
+
+
+
