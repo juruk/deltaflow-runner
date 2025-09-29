@@ -1,101 +1,149 @@
-﻿<!doctype html>
+<!doctype html>
 <html lang="mk">
 <head>
-
-<meta charset="utf-8">
-<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
-
-
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>data aggregation Dashboard v2 â€” Ð¡ÐºÐ¾Ð¿Ñ˜Ðµ (Ð¼Ð°Ð³Ð°Ñ†Ð¸Ð½Ð¸/Ð¿Ð»Ð°Ñ†Ð¾Ð²Ð¸)</title>
-
-  <!-- Ð›ÐµÑÐµÐ½, Ñ‡Ð¸Ñ‚Ð»Ð¸Ð² ÑÑ‚Ð¸Ð» (Ð¼Ð¾Ð¶ÐµÑˆ Ð´Ð° Ð³Ð¾ ÑÐ¼ÐµÐ½Ð¸Ñˆ Ð¿Ð¾ Ð¶ÐµÐ»Ð±Ð°) -->
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/simpledotcss/simple.min.css">
-
-  <!-- DataTables v2 (Ð±ÐµÐ· jQuery Ð·Ð°Ð²Ð¸ÑÐ½Ð¾ÑÑ‚) -->
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/datatables.net-dt@2.1.8/css/dataTables.dataTables.min.css">
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Operations Dashboard v2</title>
   <style>
-    :root { --card-bg: #fff; --card-br: 12px; --card-shadow: 0 1px 6px rgba(0,0,0,.07); }
-    .grid { display: grid; gap: 1.2rem; }
-    .grid-2 { grid-template-columns: 1fr 1fr; }
-    @media (max-width: 920px) { .grid-2 { grid-template-columns: 1fr; } }
-    .card { background: var(--card-bg); border-radius: var(--card-br); padding: 1rem; box-shadow: var(--card-shadow); }
-    .nowrap { white-space: nowrap; }
-    table.dataTable tbody tr:hover { background: #f7f7ff; }
-    header h1 { margin-bottom: .25rem; }
-    header p { margin-top: .25rem; color: #555; }
+    :root{
+      --bg:#0b0d12; --panel:#121826; --text:#e5e7eb; --muted:#9ca3af;
+      --accent:#2563eb; --border:#1f2937; --panel2:#0f172a;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0; font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans",
+      "Helvetica Neue", Arial, "Apple Color Emoji","Segoe UI Emoji";
+      color:var(--text);
+      background:linear-gradient(180deg, #0b0d12 0%, #0f172a 100%);
+    }
+    header{
+      padding:24px; border-bottom:1px solid var(--border);
+      position:sticky; top:0; background:rgba(11,13,18,.85); backdrop-filter:blur(6px); z-index:10;
+    }
+    h1{margin:0; font-size:24px; letter-spacing:.2px}
+    .muted{color:var(--muted); margin-top:6px; font-size:13px}
+
+    main{padding:24px; display:grid; gap:24px}
+    .grid{display:grid; grid-template-columns:repeat(auto-fit, minmax(320px,1fr)); gap:24px}
+
+    .card{
+      background:var(--panel); border:1px solid var(--border); border-radius:14px;
+      padding:16px; box-shadow:0 10px 30px rgba(0,0,0,.25);
+    }
+    .card h2{margin:0 0 8px 0; font-size:18px; color:#dbeafe}
+
+    .table-wrap{overflow:auto; background:var(--panel); border:1px solid var(--border); border-radius:14px}
+    table{width:100%; border-collapse:collapse; font-size:14px}
+    th,td{padding:10px 12px; border-bottom:1px solid var(--border)}
+    th{
+      text-align:left; position:sticky; top:0; background:var(--panel2);
+      cursor:pointer; user-select:none;
+    }
+    tr:hover td{background:rgba(37,99,235,.06)}
+    a{color:#93c5fd; text-decoration:none}
+    a:hover{text-decoration:underline}
+    .empty{padding:12px; color:var(--muted)}
+    footer{padding:16px 24px; border-top:1px solid var(--border); color:var(--muted)}
+    /* Make plotly blocks responsive */
+    .plotly-graph-div{width:100% !important; height:auto !important}
   </style>
 </head>
 <body>
   <header>
-    <h1>Ð¡ÐºÐ¾Ð¿Ñ˜Ðµ â€” ÐœÐ°Ð³Ð°Ñ†Ð¸Ð½Ð¸ &amp; ÐŸÐ»Ð°Ñ†Ð¾Ð²Ð¸ (HTML Dashboard v2)</h1>
-    <p>Ð“ÐµÐ½ÐµÑ€Ð¸Ñ€Ð°Ð½Ð¾: {{ generated_at }}</p>
+    <h1>Operations Dashboard v2</h1>
+    <div class="muted">Генерирано: {{ generated_at }}</div>
   </header>
 
-  <section class="grid grid-2">
-    <div class="card" id="chart_dist">
-      {{ plot_dist|safe }}
-    </div>
-    <div class="card" id="chart_scatter">
-      {{ plot_scatter|safe }}
-    </div>
-    <div class="card" id="chart_top_munis">
-      {{ plot_top_munis|safe }}
-    </div>
-    <div class="card" id="chart_volume">
-      {{ plot_volume|safe }}
-    </div>
-  </section>
+  <main>
+    <!-- Графици -->
+    <section class="grid">
+      <article class="card">
+        <h2>Распределба на €/m² по категорија</h2>
+        <div id="chart_dist">{{ plot_dist | safe }}</div>
+      </article>
 
-  <section class="card">
-    <h2>Top Ð¿Ð¾Ð½ÑƒÐ´Ð¸ (Ð¿Ñ€Ð²Ð¸Ñ‚Ðµ 100 Ð¿Ð¾ ÑÐºÐ¾Ñ€/ÑÐ²ÐµÐ¶Ð¸Ð½Ð°)</h2>
-    {% if rows|length == 0 %}
-      <p><em>ÐÐµÐ¼Ð° Ð¿Ð¾Ð´Ð°Ñ‚Ð¾Ñ†Ð¸ Ð·Ð° Ñ‚Ð°Ð±ÐµÐ»Ð°. ÐŸÑƒÑˆÑ‚Ð¸ crawl, Ð¿Ð° report.</em></p>
-    {% else %}
-      <p>Ð¡Ð¾Ð²ÐµÑ‚: ÐºÐ»Ð¸Ðº Ð½Ð° Ð·Ð°Ð³Ð»Ð°Ð²Ð¸Ðµ ÑÐ¾Ñ€Ñ‚Ð¸Ñ€Ð°; â€žÐŸÑ€ÐµÐ±Ð°Ñ€Ð°Ñ˜â€œ Ñ„Ð¸Ð»Ñ‚Ñ€Ð¸Ñ€Ð°; Ñ‚Ð°Ð±ÐµÐ»Ð°Ñ‚Ð° Ðµ responsive.</p>
-      <table id="tbl" class="display nowrap" style="width:100%">
-        <thead>
-          <tr>
-            {% for c in columns %}
-              <th>{{ c }}</th>
-            {% endfor %}
-          </tr>
-        </thead>
-        <tbody>
-          {% for r in rows %}
+      <article class="card">
+        <h2>Површина vs Цена</h2>
+        <div id="chart_scatter">{{ plot_scatter | safe }}</div>
+      </article>
+
+      <article class="card">
+        <h2>Топ општини по медијана €/m²</h2>
+        <div id="chart_top_munis">{{ plot_top_munis | safe }}</div>
+      </article>
+
+      <article class="card">
+        <h2>Обем на огласи по старост</h2>
+        <div id="chart_volume">{{ plot_volume | safe }}</div>
+      </article>
+    </section>
+
+    <!-- Табела -->
+    <section class="card">
+      <h2>Топ записи (според score/свежина)</h2>
+      {% if rows and columns %}
+      <div class="table-wrap">
+        <table id="data">
+          <thead>
             <tr>
-            {% for c in columns %}
-              {% if c == "url" %}
-                <td><a href="{{ r[c] }}" target="_blank" rel="noopener">Ð»Ð¸Ð½Ðº</a></td>
-              {% else %}
-                <td>{{ r[c] }}</td>
-              {% endif %}
-            {% endfor %}
+              {% for c in columns %}<th>{{ c }}</th>{% endfor %}
             </tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    {% endif %}
-  </section>
+          </thead>
+          <tbody>
+            {% for r in rows %}
+            <tr>
+              {% for c in columns %}
+                <td>
+                  {% if c == 'url' and r[c] %}
+                    <a href="{{ r[c] }}" target="_blank" rel="noopener">{{ r[c] }}</a>
+                  {% else %}
+                    {{ r[c] }}
+                  {% endif %}
+                </td>
+              {% endfor %}
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+        <div class="empty">Нема податоци за табела. Пушти crawl најпрво.</div>
+      {% endif %}
+    </section>
+  </main>
 
-  <!-- DataTables 2 (vanilla) -->
-  <script src="https://cdn.jsdelivr.net/npm/datatables.net@2.1.8/js/dataTables.min.js"></script>
+  <footer>
+    <small>© {{ generated_at.split(' ')[0] }} • Автоматски извештај</small>
+  </footer>
+
+  <!-- Едноставно сортирање по клик на header-от -->
   <script>
-    document.addEventListener('DOMContentLoaded', function () {
-      const tbl = document.getElementById('tbl');
-      if (tbl) {
-        new DataTable(tbl, {
-          paging: true,
-          pageLength: 25,
-          fixedHeader: true,
-          responsive: true
+    (function(){
+      const table = document.getElementById('data');
+      if(!table) return;
+      const ths = table.querySelectorAll('th');
+      const tbody = table.querySelector('tbody');
+      ths.forEach((th, idx) => {
+        th.addEventListener('click', () => {
+          const rowsArr = Array.from(tbody.querySelectorAll('tr'));
+          const dir = th.dataset.dir === 'asc' ? 'desc' : 'asc';
+          th.dataset.dir = dir;
+          rowsArr.sort((a,b)=>{
+            const ta = a.children[idx].innerText.trim();
+            const tb = b.children[idx].innerText.trim();
+            const na = parseFloat(ta.replace(/[^\d.-]/g,'')); 
+            const nb = parseFloat(tb.replace(/[^\d.-]/g,''));
+            if(!isNaN(na) && !isNaN(nb)){
+              return dir==='asc' ? na-nb : nb-na;
+            }
+            return dir==='asc' ? ta.localeCompare(tb) : tb.localeCompare(ta);
+          });
+          rowsArr.forEach(r=>tbody.appendChild(r));
         });
-      }
-    });
+      });
+    })();
   </script>
 </body>
 </html>
-
-
-
