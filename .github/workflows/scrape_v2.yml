@@ -23,7 +23,7 @@ jobs:
             pip install -r requirements_v2.txt
           elif [ -f requirements.txt ]; then
             pip install -r requirements.txt
-          else
+          else:
             echo "No requirements file found, installing common deps..."
             pip install pandas jinja2 plotly typer
           fi
@@ -41,12 +41,11 @@ from datetime import datetime, timezone
 import traceback
 ok = True
 try:
-    # директно ја повикуваме функцијата за да избегнеме CLI/argv проблеми
     from report_builder_v2 import build_report
     out = Path("reports") / "dashboard_v2.html"
     build_report(start_date_utc=None, out_html=out)
     print("OK: wrote", out)
-except Exception as e:
+except Exception:
     ok = False
     Path("reports").mkdir(exist_ok=True)
     Path("reports/README.txt").write_text(
@@ -55,7 +54,6 @@ except Exception as e:
     )
     print("WARN: report build failed, wrote reports/README.txt")
 PY
-          # ако нема HTML, стави placeholder за да постои reports/ во артефактот
           test -f reports/dashboard_v2.html || echo "No HTML generated" >> reports/README.txt
 
       - name: Upload artifacts
