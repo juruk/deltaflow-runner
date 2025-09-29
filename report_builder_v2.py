@@ -1,279 +1,296 @@
-﻿# report_builder_v2.py  (v2.3 â€” clean Python file)
-"""
-HTML Ð¸Ð·Ð²ÐµÑˆÑ‚Ð°Ñ˜ Ð·Ð° Ð¼Ð°Ð³Ð°Ñ†Ð¸Ð½Ð¸/Ð¿Ð»Ð°Ñ†Ð¾Ð²Ð¸ (Ð¡ÐºÐ¾Ð¿Ñ˜Ðµ) ÑÐ¾ Ð¸Ð½Ñ‚ÐµÑ€Ð°ÐºÑ‚Ð¸Ð²Ð½Ð¸ Ð³Ñ€Ð°Ñ„Ð¸Ñ†Ð¸ Ð¸ Ñ‚Ð°Ð±ÐµÐ»Ð°.
-- Ð’Ñ‡Ð¸Ñ‚ÑƒÐ²Ð° Ð¾Ð´ CSV (Ð¿Ñ€ÐµÑ„ÐµÑ€ÐµÐ½Ñ†Ð¸Ñ€Ð°Ð½Ð¾) Ð¸Ð»Ð¸ SQLite.
-- Ð“ÐµÐ½ÐµÑ€Ð¸Ñ€Ð° Plotly Ð³Ñ€Ð°Ñ„Ð¸Ñ†Ð¸ + DataTables Ñ‚Ð°Ð±ÐµÐ»Ð°.
-"""
-
+# report_builder_v2.py
 from __future__ import annotations
-from pathlib import Path
-from datetime import datetime
-import os
-import http.server
-import socketserver
 
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Optional, Tuple
+
+import math
 import pandas as pd
-from jinja2 import Environment, FileSystemLoader, select_autoescape
 import plotly.express as px
 import plotly.io as pio
+from jinja2 import Environment, FileSystemLoader, select_autoescape
+
+# ---------- Константи/патеки ----------
+ROOT = Path(__file__).resolve().parent
+DATA_DIR = ROOT / "data"
+TEMPLATES_DIR = ROOT / "templates"
+CSV_PATH = DATA_DIR / "listings.csv"
+
+# ---------- Помошни ----------
+
+def _utc_now_str() -> str:
+    # ISO без микро секунди, секогаш UTC за конзистентност
+    return datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
 
 
-# ---------- Data loading & prep ----------
-
-def _load_df(db_path: Path, csv_path: Path) -> pd.DataFrame:
-    """Ð’Ñ‡Ð¸Ñ‚Ð°Ñ˜ Ð¿Ð¾Ð´Ð°Ñ‚Ð¾Ñ†Ð¸: Ð¿Ñ€Ð²Ð¾ Ð¾Ð´ CSV, Ð°ÐºÐ¾ Ð³Ð¾ Ð½ÐµÐ¼Ð°/Ðµ Ð¿Ñ€Ð°Ð·ÐµÐ½ â†’ Ð¾Ð´ SQLite."""
-    if csv_path.exists():
-        try:
-            df = pd.read_csv(csv_path, encoding="utf-8")
-            if not df.empty:
-                return df
-        except Exception:
-            pass
-    if db_path.exists():
-        import sqlite3
-        with sqlite3.connect(db_path) as con:
-            return pd.read_sql_query("SELECT * FROM listings", con)
-    # Ð¿Ñ€Ð°Ð·ÐµÐ½ DataFrame ÑÐ¾ Ð¾Ñ‡ÐµÐºÑƒÐ²Ð°Ð½Ð¸ ÐºÐ¾Ð»Ð¾Ð½Ð¸
-    cols = [
-        "source","url","listing_id","title","transaction","category",
-        "municipality","neighborhood","area_m2","plot_area_m2",
-        "price_eur","currency_raw","price_per_m2_eur",
-        "contact_phone","contact_name","date_listed","scraped_at","images_count",
-        "description","score"
-    ]
-    return pd.DataFrame(columns=cols)
-
-
-def _compute_score(df: pd.DataFrame) -> pd.DataFrame:
-    """ÐŸÑ€Ð¸Ð±Ð»Ð¸Ð¶ÐµÐ½ ÑÐºÐ¾Ñ€: Ñ†ÐµÐ½Ð°/mÂ² (z-score, Ð¿Ð¾Ð½Ð¸ÑÐºÐ¾=Ð¿Ð¾Ð´Ð¾Ð±Ñ€Ð¾), ÑÐ²ÐµÐ¶Ð¸Ð½Ð°, Ð´Ð¾ÑÑ‚Ð°Ð¿Ð½Ð¾ÑÑ‚, ÐºÐ¾Ð¼Ð¿Ð»ÐµÑ‚Ð½Ð¾ÑÑ‚."""
-    import numpy as np
-    d = df.copy()
-
-    # z-score Ð½Ð° â‚¬/mÂ² Ð¿Ð¾ category+municipality
-    if "price_per_m2_eur" in d.columns:
-        grp = d.groupby(["category","municipality"], dropna=False)["price_per_m2_eur"]
-        z = (d["price_per_m2_eur"] - grp.transform("mean")) / grp.transform("std")
-        z = z.replace([np.inf, -np.inf], pd.NA).fillna(0.0)
-        zneg = -z  # Ð¿Ð¾Ð½Ð¸ÑÐºÐ° Ñ†ÐµÐ½Ð°/mÂ² -> Ð¿Ð¾Ð´Ð¾Ð±Ñ€Ð¾
-    else:
-        zneg = 0.0
-
-    # ÑÐ²ÐµÐ¶Ð¸Ð½Ð°
-    if "scraped_at" in d.columns:
-        d["scraped_at"] = pd.to_datetime(d["scraped_at"], errors="coerce", utc=True)
-        now = pd.Timestamp.utcnow()
-        age_days = (now - d["scraped_at"]).dt.days.clip(lower=0)
-        freshness = (30 - age_days).clip(lower=0, upper=30) / 30.0
-    else:
-        freshness = 0.5
-
-    # Ð´Ð¾ÑÑ‚Ð°Ð¿Ð½Ð¾ÑÑ‚
-    has_phone = d["contact_phone"].notna().astype(float) if "contact_phone" in d.columns else 0.0
-    imgs = d["images_count"].fillna(0) if "images_count" in d.columns else 0
-    accessibility = (has_phone > 0).astype(float) * 0.5 + (imgs >= 5).astype(float) * 0.5
-
-    # ÐºÐ¾Ð¼Ð¿Ð»ÐµÑ‚Ð½Ð¾ÑÑ‚
-    completeness_cols = ["title","price_eur","area_m2","municipality","url"]
-    have = [(d[c].notna().astype(float) if c in d.columns else 0.0) for c in completeness_cols]
-    completeness = sum(have) / max(1, len(completeness_cols))
-
-    S = 0.55 * (zneg if isinstance(zneg, pd.Series) else 0.0) + 0.25 * freshness + 0.10 * accessibility + 0.10 * completeness
-    d["score"] = S
-    return d
-
-
-def _prep_df(df: pd.DataFrame, start_date: datetime) -> pd.DataFrame:
-    """ÐÐ¾Ñ€Ð¼Ð°Ð»Ð¸Ð·Ð°Ñ†Ð¸Ð¸ Ð¸ Ñ„Ð¸Ð»Ñ‚Ñ€Ð¸ Ð·Ð° Ð¿ÐµÑ€Ð¸Ð¾Ð´."""
-    if df is None or df.empty:
+def _safe_load_csv(csv_path: Path) -> pd.DataFrame:
+    if not csv_path.exists():
         return pd.DataFrame()
+    try:
+        # UTF-8 со ignore за ретки грешки од изворите
+        return pd.read_csv(csv_path, encoding="utf-8", on_bad_lines="skip")
+    except Exception:
+        # fallback – дозволи да не падне build
+        return pd.read_csv(csv_path, encoding_errors="ignore", on_bad_lines="skip")
 
-    if "scraped_at" in df.columns:
-        df["scraped_at"] = pd.to_datetime(df["scraped_at"], errors="coerce", utc=True)
-        try:
-            df = df[df["scraped_at"] >= pd.Timestamp(start_date, tz="UTC")]
-        except Exception:
-            pass
 
-    # Ð±Ñ€Ð¾Ñ˜ÐºÐ¸
-    for c in ("price_eur", "area_m2", "plot_area_m2", "price_per_m2_eur", "images_count", "score"):
-        if c in df.columns:
-            df[c] = pd.to_numeric(df[c], errors="coerce")
+def _ensure_columns(df: pd.DataFrame) -> pd.DataFrame:
+    # Стандарден сет колони што ги очекува извештајот
+    for col in [
+        "source", "url", "title", "category",
+        "price_eur", "area_m2", "municipality",
+        "created_at",
+    ]:
+        if col not in df.columns:
+            df[col] = None
 
-    # derive â‚¬/m2 Ð°ÐºÐ¾ Ð½ÐµÐ´Ð¾ÑÑ‚Ð¸Ð³Ð°
-    if "price_per_m2_eur" not in df.columns and {"price_eur","area_m2"}.issubset(df.columns):
-        df["price_per_m2_eur"] = df.apply(
-            lambda r: (float(r["price_eur"]) / float(r["area_m2"])) if pd.notnull(r.get("price_eur")) and pd.notnull(r.get("area_m2")) and float(r["area_m2"]) > 0 else None,
-            axis=1
-        )
+    # Нормализирај типови
+    for num in ("price_eur", "area_m2"):
+        df[num] = pd.to_numeric(df[num], errors="coerce")
 
-    # Ð´ÐµÑ„Ð¾Ð»Ñ‚ Ñ‚ÐµÐºÑÑ‚ Ð¿Ð¾Ð»Ð¸ÑšÐ°
-    for c in ("category", "municipality", "title", "source"):
-        if c in df.columns:
-            df[c] = df[c].fillna("")
-    if "category" not in df.columns:
-        df["category"] = "unknown"
-    if "municipality" not in df.columns:
-        df["municipality"] = "unknown"
+    # created_at → datetime (ако е NaN, ќе стане NaT)
+    if df["created_at"].dtype == object:
+        df["created_at"] = pd.to_datetime(df["created_at"], errors="coerce", utc=True)
 
-    if "score" not in df.columns or df["score"].isna().all():
-        df = _compute_score(df)
+    # €/m²
+    df["price_per_m2_eur"] = pd.to_numeric(
+        df.get("price_per_m2_eur", pd.Series([math.nan] * len(df))), errors="coerce"
+    )
+    mask_need = df["price_per_m2_eur"].isna() & df["price_eur"].notna() & df["area_m2"].notna() & (df["area_m2"] > 0)
+    df.loc[mask_need, "price_per_m2_eur"] = df.loc[mask_need, "price_eur"] / df.loc[mask_need, "area_m2"]
+
+    # Категорија нормализација
+    df["category"] = (df["category"].fillna("")
+                      .str.strip()
+                      .str.lower()
+                      .replace({"warehouse": "warehouse", "land": "land"}))
+    # Municipality (ако нема) → "unknown"
+    df["municipality"] = df["municipality"].fillna("unknown").replace("", "unknown")
 
     return df
 
 
-# ---------- Charts & table ----------
+def _filter_since(df: pd.DataFrame, start_dt_utc: Optional[datetime]) -> pd.DataFrame:
+    if df.empty or not start_dt_utc:
+        return df
+    if start_dt_utc.tzinfo is None:
+        start_dt_utc = start_dt_utc.replace(tzinfo=timezone.utc)
+    if "created_at" in df.columns and pd.api.types.is_datetime64_any_dtype(df["created_at"]):
+        return df[df["created_at"] >= start_dt_utc]
+    return df  # ако нема дата, не филтрираме
 
-def _to_plot_html(fig) -> str:
-    """Ð’Ð³Ñ€Ð°Ð´ÐµÐ½ Plotly HTML (Ð±ÐµÐ· full_html)."""
-    return pio.to_html(fig, full_html=False, include_plotlyjs="cdn", config={"displayModeBar": True})
+
+def _score_rows(df: pd.DataFrame) -> pd.DataFrame:
+    """Едноставен score: понови огласи и разумен €/m² добиваат подобар ранг."""
+    if df.empty:
+        df["score"] = []
+        return df
+
+    # Свежина во денови (помалку подобро)
+    now = datetime.now(timezone.utc)
+    age_days = (now - df["created_at"]).dt.total_seconds() / 86400
+    age_days = age_days.fillna(age_days.max() if len(age_days) else 30)
+
+    # €/m² – нормализирај
+    ppm = df["price_per_m2_eur"].astype(float)
+    ppm_med = float(pd.Series(ppm.dropna()).median()) if ppm.notna().any() else 0.0
+    ppm_dev = (ppm - ppm_med).abs()
+    ppm_dev = ppm_dev.fillna(ppm_dev.max() if len(ppm_dev) else 0)
+
+    # Ниска старост и ниска девијација од медијаната → висок скор
+    # Превртени и скалирани на [0,1]
+    age_norm = 1 / (1 + age_days)  # 0..1
+    dev_norm = 1 / (1 + (ppm_dev / (ppm_med + 1e-6)))  # 0..1
+
+    df = df.copy()
+    df["score"] = 0.6 * age_norm + 0.4 * dev_norm
+    return df
 
 
-def _placeholder_html(msg: str) -> str:
-    return f'<div style="padding:1rem;border:1px dashed #ccc;border-radius:8px;background:#fafafa;">{msg}</div>'
-
-
-def _make_figures(df: pd.DataFrame) -> dict[str, str]:
-    """ÐšÑ€ÐµÐ¸Ñ€Ð°Ñ˜ Ð³Ñ€Ð°Ñ„Ð¸Ñ†Ð¸; Ð°ÐºÐ¾ Ð½ÐµÐ¼Ð° Ð¿Ð¾Ð´Ð°Ñ‚Ð¾Ñ†Ð¸, Ð²Ñ€Ð°Ñ‚Ð¸ placeholders."""
-    figs_html: dict[str, str] = {"dist": "", "scatter": "", "top_munis": "", "volume": ""}
-
-    if df is None or df.empty:
-        ph = _placeholder_html("ÐÐµÐ¼Ð° Ð¿Ð¾Ð´Ð°Ñ‚Ð¾Ñ†Ð¸ Ð·Ð° Ð¿Ñ€Ð¸ÐºÐ°Ð¶ÑƒÐ²Ð°ÑšÐµ (CSV/DB Ðµ Ð¿Ñ€Ð°Ð·ÐµÐ½). ÐŸÑƒÑˆÑ‚Ð¸ crawl Ð½Ð°Ñ˜Ð¿Ñ€Ð²Ð¾.")
-        for k in figs_html:
-            figs_html[k] = ph
-        return figs_html
-
-    # 1) Ð¥Ð¸ÑÑ‚Ð¾Ð³Ñ€Ð°Ð¼ â‚¬/mÂ² Ð¿Ð¾ ÐºÐ°Ñ‚ÐµÐ³Ð¾Ñ€Ð¸Ñ˜Ð°
-    d1 = df[df["price_per_m2_eur"].notnull()] if "price_per_m2_eur" in df.columns else pd.DataFrame()
-    if not d1.empty:
-        fig1 = px.histogram(d1, x="price_per_m2_eur", color="category", nbins=50, marginal="box",
-                            title="Ð Ð°ÑÐ¿Ñ€ÐµÐ´ÐµÐ»Ð±Ð° Ð½Ð° â‚¬/mÂ² Ð¿Ð¾ ÐºÐ°Ñ‚ÐµÐ³Ð¾Ñ€Ð¸Ñ˜Ð°")
-        figs_html["dist"] = _to_plot_html(fig1)
-    else:
-        figs_html["dist"] = _placeholder_html("ÐÐµÐ´Ð¾ÑÑ‚Ð°ÑÑƒÐ²Ð° price_per_m2_eur Ð·Ð° Ñ…Ð¸ÑÑ‚Ð¾Ð³Ñ€Ð°Ð¼.")
-
-    # 2) Scatter: Ð¿Ð¾Ð²Ñ€ÑˆÐ¸Ð½Ð° vs Ñ†ÐµÐ½Ð°
-    d2 = df[df["area_m2"].notnull() & df["price_eur"].notnull()] if {"area_m2","price_eur"}.issubset(df.columns) else pd.DataFrame()
-    if not d2.empty:
-        try:
-            import statsmodels.api  # noqa: F401
-            trend = "ols"
-        except Exception:
-            trend = None
-        fig2 = px.scatter(
-            d2, x="area_m2", y="price_eur", color="category",
-            hover_data=[c for c in ["title","municipality","url"] if c in d2.columns],
-            trendline=trend, title="ÐŸÐ¾Ð²Ñ€ÑˆÐ¸Ð½Ð° vs Ð¦ÐµÐ½Ð°"
+def _plot_html(fig) -> str:
+    if fig is None:
+        return ""
+    try:
+        return pio.to_html(
+            fig,
+            include_plotlyjs="cdn",
+            full_html=False,
+            config={"displayModeBar": False},
         )
-        fig2.update_layout(xaxis_title="mÂ²", yaxis_title="â‚¬")
-        figs_html["scatter"] = _to_plot_html(fig2)
-    else:
-        figs_html["scatter"] = _placeholder_html("ÐÐµÐ´Ð¾ÑÑ‚Ð°ÑÑƒÐ²Ð°Ð°Ñ‚ Ð´Ð¾Ð²Ð¾Ð»Ð½Ð¾ Ð·Ð°Ð¿Ð¸ÑÐ¸ ÑÐ¾ area_m2 Ð¸ price_eur Ð·Ð° scatter.")
+    except Exception:
+        return ""
 
-    # 3) Ð¢Ð¾Ð¿ Ð¾Ð¿ÑˆÑ‚Ð¸Ð½Ð¸ Ð¿Ð¾ Ð¼ÐµÐ´Ð¸Ñ˜Ð°Ð½Ð° â‚¬/mÂ²
-    if not d1.empty and "municipality" in d1.columns:
-        d3 = d1.groupby("municipality", dropna=False)["price_per_m2_eur"].median().sort_values().tail(10)
-        if not d3.empty:
-            fig3 = px.bar(d3, x=d3.index, y=d3.values, title="Ð¢Ð¾Ð¿ Ð¾Ð¿ÑˆÑ‚Ð¸Ð½Ð¸ Ð¿Ð¾ Ð¼ÐµÐ´Ð¸Ñ˜Ð°Ð½Ð° â‚¬/mÂ²")
-            fig3.update_layout(xaxis_title="ÐžÐ¿ÑˆÑ‚Ð¸Ð½Ð°", yaxis_title="â‚¬/mÂ² (Ð¼ÐµÐ´Ð¸Ñ˜Ð°Ð½Ð°)")
-            figs_html["top_munis"] = _to_plot_html(fig3)
+
+# ---------- Генерација на графици ----------
+
+def _build_charts(df: pd.DataFrame) -> Tuple[str, str, str, str]:
+    if df.empty:
+        return ("", "", "", "")
+
+    # Чисти податоци за графици
+    dfp = df.copy()
+
+    # 1) Дистрибуција €/m² по категорија
+    try:
+        df1 = dfp[dfp["price_per_m2_eur"].notna() & (dfp["price_per_m2_eur"] > 0)]
+        if df1.empty:
+            plot_dist = ""
         else:
-            figs_html["top_munis"] = _placeholder_html("ÐÐµÐ¼Ð° Ð´Ð¾Ð²Ð¾Ð»Ð½Ð¾ Ð¿Ð¾Ð´Ð°Ñ‚Ð¾Ñ†Ð¸ Ð·Ð° Ð¾Ð¿ÑˆÑ‚Ð¸Ð½Ð¸.")
-    else:
-        figs_html["top_munis"] = _placeholder_html("ÐÐµÐ´Ð¾ÑÑ‚Ð°ÑÑƒÐ²Ð°Ð°Ñ‚ Ð¿Ð¾Ð´Ð°Ñ‚Ð¾Ñ†Ð¸ Ð·Ð° municipality/â‚¬/mÂ².")
-
-    # 4) ÐžÐ±ÐµÐ¼ Ð¿Ð¾ ÑÑ‚Ð°Ñ€Ð¾ÑÑ‚
-    if "scraped_at" in df.columns and pd.api.types.is_datetime64_any_dtype(df["scraped_at"]):
-        now = pd.Timestamp.utcnow()
-        age = (now - df["scraped_at"]).dt.days
-        buckets = pd.cut(age, bins=[-1,3,7,30,365], labels=["â‰¤3 Ð´ÐµÐ½Ð°","â‰¤7","â‰¤30",">30"])
-        d4 = buckets.value_counts().reindex(["â‰¤3 Ð´ÐµÐ½Ð°","â‰¤7","â‰¤30",">30"]).fillna(0)
-        fig4 = px.bar(x=d4.index, y=d4.values, title="ÐžÐ±ÐµÐ¼ Ð½Ð° Ð¾Ð³Ð»Ð°ÑÐ¸ Ð¿Ð¾ ÑÑ‚Ð°Ñ€Ð¾ÑÑ‚")
-        fig4.update_layout(xaxis_title="Ð¡Ñ‚Ð°Ñ€Ð¾ÑÑ‚", yaxis_title="Ð‘Ñ€Ð¾Ñ˜ Ð½Ð° Ð¾Ð³Ð»Ð°ÑÐ¸")
-        figs_html["volume"] = _to_plot_html(fig4)
-    else:
-        figs_html["volume"] = _placeholder_html("ÐÐµÐ´Ð¾ÑÑ‚Ð°ÑÑƒÐ²Ð° Ð²Ð°Ð»Ð¸Ð´Ð½Ð¾ Ð¿Ð¾Ð»Ðµ scraped_at (Ð´Ð°Ñ‚ÑƒÐ¼/Ð²Ñ€ÐµÐ¼Ðµ).")
-
-    return figs_html
-
-
-def _format_currency_eur(x) -> str:
-    try:
-        n = float(x)
-        return f"â‚¬{int(round(n)):,}".replace(",", " ")
+            fig1 = px.histogram(
+                df1, x="price_per_m2_eur", color="category",
+                nbins=40, opacity=0.85, barmode="overlay",
+                labels={"price_per_m2_eur": "€/m²", "category": "Категорија"},
+                title=None,
+            )
+            fig1.update_layout(margin=dict(l=10, r=10, t=10, b=10), legend_title_text="")
+            plot_dist = _plot_html(fig1)
     except Exception:
-        return ""
+        plot_dist = ""
 
-
-def _format_price_per_m2(x) -> str:
+    # 2) Scatter: Површина vs Цена
     try:
-        v = float(x)
-        return f"â‚¬{v:,.0f}/mÂ²".replace(",", " ")
+        df2 = dfp[dfp["area_m2"].notna() & dfp["price_eur"].notna()]
+        if df2.empty:
+            plot_scatter = ""
+        else:
+            fig2 = px.scatter(
+                df2, x="area_m2", y="price_eur", color="category",
+                hover_data=["title", "municipality", "price_per_m2_eur"],
+                labels={"area_m2": "m²", "price_eur": "€"},
+                trendline="ols",
+                title=None,
+            )
+            fig2.update_layout(margin=dict(l=10, r=10, t=10, b=10), legend_title_text="")
+            plot_scatter = _plot_html(fig2)
     except Exception:
-        return ""
+        plot_scatter = ""
+
+    # 3) Топ општини по медијана €/m²
+    try:
+        df3 = dfp[dfp["price_per_m2_eur"].notna() & (dfp["price_per_m2_eur"] > 0)]
+        if df3.empty:
+            plot_top_munis = ""
+        else:
+            g = df3.groupby("municipality", dropna=False)["price_per_m2_eur"].median().sort_values(ascending=False).head(12)
+            fig3 = px.bar(
+                g.reset_index(), x="municipality", y="price_per_m2_eur",
+                labels={"municipality": "Општина", "price_per_m2_eur": "Медијана €/m²"},
+                title=None,
+            )
+            fig3.update_layout(margin=dict(l=10, r=10, t=10, b=10))
+            plot_top_munis = _plot_html(fig3)
+    except Exception:
+        plot_top_munis = ""
+
+    # 4) Обем по старост (created_at → бинови)
+    try:
+        df4 = dfp[dfp["created_at"].notna()]
+        if df4.empty:
+            plot_volume = ""
+        else:
+            # Број по ден (последни 60 дена)
+            s = df4.groupby(df4["created_at"].dt.date).size().sort_index()
+            s = s.tail(60)
+            fig4 = px.area(
+                s.reset_index(names=["date"]).rename(columns={0: "count"}),
+                x="date", y="count", title=None,
+                labels={"date": "Датум", "count": "Број огласи"},
+            )
+            fig4.update_layout(margin=dict(l=10, r=10, t=10, b=10))
+            plot_volume = _plot_html(fig4)
+    except Exception:
+        plot_volume = ""
+
+    return (plot_dist, plot_scatter, plot_top_munis, plot_volume)
 
 
-def _table_rows(df: pd.DataFrame, limit=100) -> pd.DataFrame:
-    """ÐŸÐ¾Ð´Ð³Ð¾Ñ‚Ð²Ð¸ Ñ‚Ð°Ð±ÐµÐ»Ð° (Top ÑÐ¿Ð¾Ñ€ÐµÐ´ score/ÑÐ²ÐµÐ¶Ð¸Ð½Ð°) ÑÐ¾ Ð½Ð°Ñ˜Ð²Ð°Ð¶Ð½Ð¸ ÐºÐ¾Ð»Ð¾Ð½Ð¸."""
-    if df is None or df.empty:
-        return pd.DataFrame()
-    cols_pref = [
-        "score","category","municipality","area_m2","plot_area_m2",
-        "price_eur","price_per_m2_eur","title","url","scraped_at","source"
-    ]
-    present = [c for c in cols_pref if c in df.columns]
-    if not present:
-        return pd.DataFrame()
-    d = df[present].copy()
-    if "score" in d.columns and d["score"].notnull().any():
-        d = d.sort_values("score", ascending=False)
-    elif "scraped_at" in d.columns and pd.api.types.is_datetime64_any_dtype(d["scraped_at"]):
-        d = d.sort_values("scraped_at", ascending=False)
-    d = d.head(limit)
-    if "price_eur" in d.columns:
-        d["price_eur"] = d["price_eur"].apply(_format_currency_eur)
-    if "price_per_m2_eur" in d.columns:
-        d["price_per_m2_eur"] = d["price_per_m2_eur"].apply(_format_price_per_m2)
-    if "scraped_at" in d.columns:
-        d["scraped_at"] = pd.to_datetime(d["scraped_at"], errors="coerce").dt.strftime("%Y-%m-%d")
-    return d
+# ---------- Главна функција ----------
 
+def build_report(start_date_utc: Optional[datetime], out_html: Path) -> Path:
+    """
+    Гради HTML извештај (UTF-8) во `out_html`.
+    :param start_date_utc: филтрирај од оваа дата (UTC) ако е зададена
+    :param out_html: патека за HTML (на пр. reports/dashboard_v2.html)
+    :return: патеката до генерираниот HTML
+    """
+    out_html = Path(out_html)
+    out_html.parent.mkdir(parents=True, exist_ok=True)
 
-# ---------- Public API ----------
+    df = _safe_load_csv(CSV_PATH)
+    df = _ensure_columns(df)
 
-def build_report(db_path: Path, csv_path: Path, out_html: Path, start_date: datetime):
-    """Ð“ÐµÐ½ÐµÑ€Ð¸Ñ€Ð°Ñ˜ HTML Ð¸Ð·Ð²ÐµÑˆÑ‚Ð°Ñ˜ (dashboard_v2.html)."""
-    df = _load_df(db_path, csv_path)
-    df = _prep_df(df, start_date)
-    figs = _make_figures(df)
-    top = _table_rows(df, limit=100)
+    if start_date_utc:
+        df = _filter_since(df, start_date_utc)
 
+    # Сортирај по score за табела
+    if not df.empty:
+        df = _score_rows(df)
+        df_sorted = df.sort_values("score", ascending=False).copy()
+    else:
+        df_sorted = df.copy()
+
+    # Избери колони за табела и првите 100
+    table_cols = [c for c in ["title", "category", "price_eur", "area_m2", "price_per_m2_eur", "municipality", "source", "url", "created_at", "score"] if c in df_sorted.columns]
+    table_rows = []
+    if not df_sorted.empty and table_cols:
+        # форматирај разумно бројки
+        df_show = df_sorted[table_cols].head(100).copy()
+        if "price_eur" in df_show:
+            df_show["price_eur"] = df_show["price_eur"].map(lambda v: f"{v:,.0f}" if pd.notna(v) else "")
+        if "area_m2" in df_show:
+            df_show["area_m2"] = df_show["area_m2"].map(lambda v: f"{v:,.0f}" if pd.notna(v) else "")
+        if "price_per_m2_eur" in df_show:
+            df_show["price_per_m2_eur"] = df_show["price_per_m2_eur"].map(lambda v: f"{v:,.0f}" if pd.notna(v) else "")
+        if "created_at" in df_show and pd.api.types.is_datetime64_any_dtype(df_show["created_at"]):
+            df_show["created_at"] = df_show["created_at"].dt.strftime("%Y-%m-%d")
+        table_rows = df_show.fillna("").to_dict(orient="records")
+
+    # Графици
+    plot_dist, plot_scatter, plot_top_munis, plot_volume = _build_charts(df)
+
+    # Рендерирај Jinja2 темплејт
     env = Environment(
-        loader=FileSystemLoader("templates"),
-        autoescape=select_autoescape(["html", "xml"])
+        loader=FileSystemLoader(str(TEMPLATES_DIR)),
+        autoescape=select_autoescape(["html", "xml", "j2"]),
     )
     tmpl = env.get_template("dashboard_v2.html.j2")
-
     html = tmpl.render(
-        generated_at=datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC"),
-        plot_dist=figs.get("dist", ""),
-        plot_scatter=figs.get("scatter", ""),
-        plot_top_munis=figs.get("top_munis", ""),
-        plot_volume=figs.get("volume", ""),
-        rows=(top.to_dict(orient="records") if not top.empty else []),
-        columns=(list(top.columns) if not top.empty else [])
+        generated_at=_utc_now_str(),
+        plot_dist=plot_dist,
+        plot_scatter=plot_scatter,
+        plot_top_munis=plot_top_munis,
+        plot_volume=plot_volume,
+        columns=table_cols,
+        rows=table_rows,
     )
 
-    out_html.parent.mkdir(parents=True, exist_ok=True)
+    # Запиши UTF-8 (клучно против „грд encoding“)
     out_html.write_text(html, encoding="utf-8")
+    return out_html
 
 
-def serve_reports(port: int = 8000):
-    """Ð¡ÐµÑ€Ð²Ð¸Ñ€Ð°Ñ˜ Ñ˜Ð° Ð¿Ð°Ð¿ÐºÐ°Ñ‚Ð° /reports Ð»Ð¾ÐºÐ°Ð»Ð½Ð¾ (http://localhost:<port>)."""
-    reports_dir = Path("reports")
+# ---------- Локално сервирање ----------
+
+def serve_reports(port: int = 8000) -> None:
+    """
+    Сервира ./reports/ на http://localhost:<port>
+    """
+    import http.server
+    import socketserver
+    import os
+
+    reports_dir = (ROOT / "reports").resolve()
     reports_dir.mkdir(exist_ok=True)
-    os.chdir(str(reports_dir))
-    Handler = http.server.SimpleHTTPRequestHandler
-    with socketserver.TCPServer(("", port), Handler) as httpd:
-        print(f"Serving reports/ at http://localhost:{port}")
-        httpd.serve_forever()
 
+    # Промени работна директорија само за серверот
+    os.chdir(str(reports_dir))
+
+    handler = http.server.SimpleHTTPRequestHandler
+    with socketserver.TCPServer(("", port), handler) as httpd:
+        print(f"[SERVE] http://localhost:{port}  (CTRL+C за стоп)")
+        try:
+            httpd.serve_forever()
+        except KeyboardInterrupt:
+            print("\n[OK] Stop сервер")
+            httpd.server_close()
