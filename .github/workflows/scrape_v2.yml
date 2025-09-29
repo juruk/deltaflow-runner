@@ -1,0 +1,57 @@
+﻿name: scrape-and-report-v2
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 5 * * *"   # секој ден 07:00 CET ≈ 05:00 UTC
+  pull_request:
+
+jobs:
+  crawl-and-report:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          if [ -f requirements_v2.txt ]; then
+            pip install -r requirements_v2.txt
+          elif [ -f requirements.txt ]; then
+            pip install -r requirements.txt
+          else
+            echo "No requirements file found, installing common deps..."
+            pip install pandas jinja2 plotly typer
+          fi
+
+      - name: Crawl
+        run: |
+          python main_v2.py crawl --since 30d --max-items 200 || true
+
+      - name: Build HTML report
+        run: |
+          mkdir -p reports
+          python main_v2.py report --since 30d --out reports/dashboard_v2.html || true
+
+      - name: Sanity check (non-blocking)
+        run: |
+          if [ -f reports/dashboard_v2.html ]; then
+            echo "HTML exists"
+            grep -q "chart_" reports/dashboard_v2.html || echo "no charts detected"
+          else
+            echo "NO HTML GENERATED (will still upload whatever exists)"
+          fi
+
+      - name: Upload artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: html-dashboard-v2
+          path: |
+            reports/*
+            data/listings.csv
+          if-no-files-found: warn
