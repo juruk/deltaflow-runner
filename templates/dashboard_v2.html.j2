@@ -7,47 +7,37 @@
   <title>Operations Dashboard v2</title>
   <style>
     :root{
-      --bg:#0b0d12; --panel:#121826; --text:#e5e7eb; --muted:#9ca3af;
-      --accent:#2563eb; --border:#1f2937; --panel2:#0f172a;
+      --bg:#ffffff; --text:#111827; --muted:#6b7280;
+      --card:#ffffff; --border:#e5e7eb; --accent:#2563eb;
+      --thead:#f8fafc; --hover:#f3f4f6;
     }
     *{box-sizing:border-box}
-    html,body{height:100%}
-    body{
-      margin:0; font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans",
-      "Helvetica Neue", Arial, "Apple Color Emoji","Segoe UI Emoji";
-      color:var(--text);
-      background:linear-gradient(180deg, #0b0d12 0%, #0f172a 100%);
-    }
-    header{
-      padding:24px; border-bottom:1px solid var(--border);
-      position:sticky; top:0; background:rgba(11,13,18,.85); backdrop-filter:blur(6px); z-index:10;
-    }
-    h1{margin:0; font-size:24px; letter-spacing:.2px}
-    .muted{color:var(--muted); margin-top:6px; font-size:13px}
+    body{margin:0; font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans", Arial; color:var(--text); background:var(--bg)}
+    header{position:sticky; top:0; background:#fff; border-bottom:1px solid var(--border); padding:20px 24px; z-index:10}
+    h1{margin:0; font-size:24px}
+    .muted{color:var(--muted); font-size:13px; margin-top:6px}
 
     main{padding:24px; display:grid; gap:24px}
     .grid{display:grid; grid-template-columns:repeat(auto-fit, minmax(320px,1fr)); gap:24px}
 
-    .card{
-      background:var(--panel); border:1px solid var(--border); border-radius:14px;
-      padding:16px; box-shadow:0 10px 30px rgba(0,0,0,.25);
-    }
-    .card h2{margin:0 0 8px 0; font-size:18px; color:#dbeafe}
+    .card{background:var(--card); border:1px solid var(--border); border-radius:12px; padding:16px}
+    .card h2{margin:0 0 10px 0; font-size:18px}
 
-    .table-wrap{overflow:auto; background:var(--panel); border:1px solid var(--border); border-radius:14px}
-    table{width:100%; border-collapse:collapse; font-size:14px}
-    th,td{padding:10px 12px; border-bottom:1px solid var(--border)}
-    th{
-      text-align:left; position:sticky; top:0; background:var(--panel2);
-      cursor:pointer; user-select:none;
+    .placeholder{
+      border:2px dashed var(--border); border-radius:10px; padding:16px; color:var(--muted); font-size:14px;
+      background:#fff;
     }
-    tr:hover td{background:rgba(37,99,235,.06)}
-    a{color:#93c5fd; text-decoration:none}
-    a:hover{text-decoration:underline}
-    .empty{padding:12px; color:var(--muted)}
-    footer{padding:16px 24px; border-top:1px solid var(--border); color:var(--muted)}
-    /* Make plotly blocks responsive */
+
+    .table-wrap{overflow:auto; background:#fff; border:1px solid var(--border); border-radius:12px}
+    table{width:100%; border-collapse:collapse; font-size:14px}
+    thead th{position:sticky; top:0; background:var(--thead); border-bottom:1px solid var(--border)}
+    th,td{padding:10px 12px; border-bottom:1px solid var(--border); text-align:left}
+    tr:hover td{background:var(--hover)}
+    a{color:#0ea5e9; text-decoration:none} a:hover{text-decoration:underline}
+    footer{padding:16px 24px; border-top:1px solid var(--border); color:var(--muted); margin-top:8px}
+
     .plotly-graph-div{width:100% !important; height:auto !important}
+    .note{font-size:12px; color:var(--muted); margin-top:6px}
   </style>
 </head>
 <body>
@@ -61,22 +51,38 @@
     <section class="grid">
       <article class="card">
         <h2>Распределба на €/m² по категорија</h2>
-        <div id="chart_dist">{{ plot_dist | safe }}</div>
+        {% if plot_dist and ('<' in plot_dist) %}
+          {{ plot_dist | safe }}
+        {% else %}
+          <div class="placeholder">Нема график за сега. Пушти <em>crawl</em> за свежи податоци.</div>
+        {% endif %}
       </article>
 
       <article class="card">
         <h2>Површина vs Цена</h2>
-        <div id="chart_scatter">{{ plot_scatter | safe }}</div>
+        {% if plot_scatter and ('<' in plot_scatter) %}
+          {{ plot_scatter | safe }}
+        {% else %}
+          <div class="placeholder">Нема график за сега. Пушти <em>crawl</em> за свежи податоци.</div>
+        {% endif %}
       </article>
 
       <article class="card">
         <h2>Топ општини по медијана €/m²</h2>
-        <div id="chart_top_munis">{{ plot_top_munis | safe }}</div>
+        {% if plot_top_munis and ('<' in plot_top_munis) %}
+          {{ plot_top_munis | safe }}
+        {% else %}
+          <div class="placeholder">Нема график за сега. Пушти <em>crawl</em> за свежи податоци.</div>
+        {% endif %}
       </article>
 
       <article class="card">
         <h2>Обем на огласи по старост</h2>
-        <div id="chart_volume">{{ plot_volume | safe }}</div>
+        {% if plot_volume and ('<' in plot_volume) %}
+          {{ plot_volume | safe }}
+        {% else %}
+          <div class="placeholder">Нема график за сега. Пушти <em>crawl</em> за свежи податоци.</div>
+        {% endif %}
       </article>
     </section>
 
@@ -84,32 +90,31 @@
     <section class="card">
       <h2>Топ записи (според score/свежина)</h2>
       {% if rows and columns %}
-      <div class="table-wrap">
-        <table id="data">
-          <thead>
-            <tr>
-              {% for c in columns %}<th>{{ c }}</th>{% endfor %}
-            </tr>
-          </thead>
-          <tbody>
-            {% for r in rows %}
-            <tr>
-              {% for c in columns %}
-                <td>
-                  {% if c == 'url' and r[c] %}
-                    <a href="{{ r[c] }}" target="_blank" rel="noopener">{{ r[c] }}</a>
-                  {% else %}
-                    {{ r[c] }}
-                  {% endif %}
-                </td>
+        <div class="table-wrap">
+          <table id="data">
+            <thead>
+              <tr>{% for c in columns %}<th>{{ c }}</th>{% endfor %}</tr>
+            </thead>
+            <tbody>
+              {% for r in rows %}
+              <tr>
+                {% for c in columns %}
+                  <td>
+                    {% if c == 'url' and r[c] %}
+                      <a href="{{ r[c] }}" target="_blank" rel="noopener">{{ r[c] }}</a>
+                    {% else %}
+                      {{ r[c] }}
+                    {% endif %}
+                  </td>
+                {% endfor %}
+              </tr>
               {% endfor %}
-            </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-      </div>
+            </tbody>
+          </table>
+        </div>
+        <div class="note">Совет: клик на headер за локално сортирање.</div>
       {% else %}
-        <div class="empty">Нема податоци за табела. Пушти crawl најпрво.</div>
+        <div class="placeholder">Нема податоци за табела. Пушти <code>python main_v2.py crawl</code> па <code>report</code>.</div>
       {% endif %}
     </section>
   </main>
@@ -118,29 +123,28 @@
     <small>© {{ generated_at.split(' ')[0] }} • Автоматски извештај</small>
   </footer>
 
-  <!-- Едноставно сортирање по клик на header-от -->
+  <!-- Едноставно локално сортирање по клик на колона -->
   <script>
     (function(){
-      const table = document.getElementById('data');
-      if(!table) return;
-      const ths = table.querySelectorAll('th');
-      const tbody = table.querySelector('tbody');
-      ths.forEach((th, idx) => {
-        th.addEventListener('click', () => {
-          const rowsArr = Array.from(tbody.querySelectorAll('tr'));
+      const t = document.getElementById('data');
+      if(!t) return;
+      const ths = t.querySelectorAll('th');
+      const tbody = t.querySelector('tbody');
+      ths.forEach((th, i)=>{
+        th.style.cursor='pointer';
+        th.addEventListener('click', ()=>{
+          const rows = Array.from(tbody.querySelectorAll('tr'));
           const dir = th.dataset.dir === 'asc' ? 'desc' : 'asc';
           th.dataset.dir = dir;
-          rowsArr.sort((a,b)=>{
-            const ta = a.children[idx].innerText.trim();
-            const tb = b.children[idx].innerText.trim();
-            const na = parseFloat(ta.replace(/[^\d.-]/g,'')); 
-            const nb = parseFloat(tb.replace(/[^\d.-]/g,''));
-            if(!isNaN(na) && !isNaN(nb)){
-              return dir==='asc' ? na-nb : nb-na;
-            }
-            return dir==='asc' ? ta.localeCompare(tb) : tb.localeCompare(ta);
+          rows.sort((a,b)=>{
+            const A = a.children[i].innerText.trim();
+            const B = b.children[i].innerText.trim();
+            const na = parseFloat(A.replace(/[^\d.-]/g,'')),
+                  nb = parseFloat(B.replace(/[^\d.-]/g,''));
+            if(!isNaN(na) && !isNaN(nb)) return dir==='asc' ? na-nb : nb-na;
+            return dir==='asc' ? A.localeCompare(B) : B.localeCompare(A);
           });
-          rowsArr.forEach(r=>tbody.appendChild(r));
+          rows.forEach(r=>tbody.appendChild(r));
         });
       });
     })();
